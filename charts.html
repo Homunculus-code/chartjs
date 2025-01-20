@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #ffffff;
+            color: #000000;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 300px;
+        }
+        .toggle-night-mode {
+            cursor: pointer;
+            background-color: #000000;
+            color: #ffffff;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .color-picker-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .color-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #000;
+            cursor: pointer;
+        }
+        .color-input {
+            display: none;
+        }
+        .pencil-icon {
+            cursor: pointer;
+            font-size: 18px;
+            color: #666;
+            margin-left: 5px;
+        }
+        h1 {
+            font-family: 'Raleway', sans-serif;
+            font-weight: 900;
+            font-size: 3.5rem;
+            color: #000000;
+            text-align: center;
+            padding: 30px;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+        .theme-toggle {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button id="toggleNightMode" class="toggle-night-mode">Switch to Night Mode</button>
+        <h1>CHART GENERATOR</h1>
+
+        <div class="form-group">
+            <label for="chartType">Select Chart Type</label>
+            <select id="chartType">
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="pie">Pie Chart</option>
+                <option value="radar">Radar Chart</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="labels">Enter Labels (comma-separated)</label>
+            <input type="text" id="labels" placeholder="e.g., January, February, March">
+        </div>
+
+        <div class="form-group">
+            <label for="values">Enter Values (comma-separated)</label>
+            <input type="text" id="values" placeholder="e.g., 10, 20, 30">
+        </div>
+
+        <div class="form-group">
+            <label for="themeSelector">Select Chart Theme</label>
+            <select id="themeSelector">
+                <option value="pastel">Pastel</option>
+                <option value="neon">Neon</option>
+                <option value="grayscale">Grayscale</option>
+            </select>
+        </div>
+
+        <button id="generateChart">Generate Chart</button>
+        <button id="downloadChart">Download Chart</button>
+
+        <div id="colorPickers" class="color-picker-container"></div>
+
+        <div class="chart-container">
+            <canvas id="chartCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const chartCanvas = document.getElementById('chartCanvas');
+        const colorPickersContainer = document.getElementById('colorPickers');
+        const themeSelector = document.getElementById('themeSelector');
+        let chartInstance;
+
+        const themes = {
+            pastel: ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF'],
+            neon: ['#FF0000', '#FF9900', '#FFFF00', '#33FF00', '#00FFFF', '#3300FF', '#FF00FF'],
+            grayscale: ['#333333', '#666666', '#999999', '#CCCCCC', '#EEEEEE']
+        };
+
+        function getThemeColors(theme, count) {
+            const colors = themes[theme] || themes.pastel;
+            return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+        }
+
+        function createColorPickers(labels, colors) {
+            colorPickersContainer.innerHTML = '';
+            labels.forEach((label, index) => {
+                const colorPickerDiv = document.createElement('div');
+                colorPickerDiv.className = 'color-picker';
+
+                const labelText = document.createElement('span');
+                labelText.textContent = label;
+
+                const colorBox = document.createElement('div');
+                colorBox.className = 'color-box';
+                colorBox.style.backgroundColor = colors[index] || '#4bc0c0';
+
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.className = 'color-input';
+                colorInput.value = colors[index] || '#4bc0c0';
+
+                const pencilIcon = document.createElement('i');
+                pencilIcon.className = 'fas fa-pencil-alt pencil-icon';
+
+                colorBox.addEventListener('click', () => {
+                    colorInput.click();
+                });
+
+                colorInput.addEventListener('input', () => {
+                    colorBox.style.backgroundColor = colorInput.value;
+                    chartInstance.data.datasets[0].backgroundColor[index] = colorInput.value;
+                    chartInstance.data.datasets[0].borderColor[index] = colorInput.value;
+                    chartInstance.update();
+                });
+
+                colorPickerDiv.appendChild(labelText);
+                colorPickerDiv.appendChild(colorBox);
+                colorPickerDiv.appendChild(colorInput);
+                colorPickerDiv.appendChild(pencilIcon);
+                colorPickersContainer.appendChild(colorPickerDiv);
+            });
+        }
+
+        document.getElementById('generateChart').addEventListener('click', () => {
+            const chartType = document.getElementById('chartType').value;
+            const labels = document.getElementById('labels').value.split(',').map(label => label.trim());
+            const values = document.getElementById('values').value.split(',').map(value => parseFloat(value.trim()));
+            const theme = themeSelector.value;
+
+            const backgroundColors = getThemeColors(theme, labels.length);
+            const borderColors = backgroundColors;
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(chartCanvas, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'User Data',
+                        data: values,
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true },
+                        title: { display: true, text: 'Custom Chart' }
+                    }
+                }
+            });
+
+            createColorPickers(labels, backgroundColors);
+        });
+
+        document.getElementById('downloadChart').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'chart.jpg';
+            link.href = chartCanvas.toDataURL('image/jpeg', 1.0);
+            link.click();
+        });
+
+        document.getElementById('toggleNightMode').addEventListener('click', () => {
+            const body = document.body;
+            const button = document.getElementById('toggleNightMode');
+            const title = document.querySelector('h1');
+
+            if (body.style.backgroundColor === 'black') {
+                body.style.backgroundColor = 'white';
+                body.style.color = 'black';
+                title.style.color = '#000000';
+                button.textContent = 'Switch to Night Mode';
+                button.style.backgroundColor = 'black';
+                button.style.color = 'white';
+            } else {
+                body.style.backgroundColor = 'black';
+                body.style.color = 'white';
+                title.style.color = '#ffffff';
+                button.textContent = 'Switch to Day Mode';
+                button.style.backgroundColor = 'white';
+                button.style.color = 'black';
+            }
+        });
+    </script>
+</body>
+</html>
